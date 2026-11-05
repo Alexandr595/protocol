@@ -9,36 +9,10 @@ VOICES=HOME/'VoiceSamples';VOICES.mkdir(exist_ok=True)
 
 class App:
     def __init__(self):
-        self.root=tk.Tk();self.root.title('Протокол · 0.10.1');self.root.geometry('800x740');self.root.minsize(650,520)
+        self.root=tk.Tk();self.root.title('Протокол · 0.10.2');self.root.geometry('800x740');self.root.minsize(650,520)
         self.events=queue.Queue();self.session=None;self.busy=False;self.queue_busy=False;self.last_folder=STORE
-        canvas=tk.Canvas(self.root,highlightthickness=0)
-        scroll=ttk.Scrollbar(self.root,orient='vertical',command=canvas.yview)
-        scroll.pack(side='right',fill='y');canvas.pack(side='left',fill='both',expand=True)
-        canvas.configure(yscrollcommand=scroll.set)
-        p=ttk.Frame(canvas,padding=20);content=canvas.create_window((0,0),window=p,anchor='nw')
-        p.bind('<Configure>',lambda event:canvas.configure(scrollregion=canvas.bbox('all')))
-        canvas.bind('<Configure>',lambda event:canvas.itemconfigure(content,width=event.width))
-        ttk.Label(p,text='Протокол',font=('Segoe UI',24,'bold')).pack(anchor='w')
-        ttk.Label(p,text='Микрофон и звук звонка → запись → результат на сервере').pack(anchor='w',pady=(0,12))
-        settings=ttk.LabelFrame(p,text='Подключение к серверу',padding=10);settings.pack(fill='x')
-        self.server=tk.StringVar(value='http://192.168.7.66:18765');self.user=tk.StringVar(value='meeting');self.password=tk.StringVar()
-        for label,var,secret in [('Сервер',self.server,False),('Логин',self.user,False),('Пароль',self.password,True)]:
-            row=ttk.Frame(settings);row.pack(fill='x',pady=2);ttk.Label(row,text=label,width=10).pack(side='left');ttk.Entry(row,textvariable=var,show='*' if secret else '').pack(side='left',fill='x',expand=True)
-        ttk.Button(settings,text='Сохранить подключение',command=self.configure).pack(anchor='e',pady=4)
-        self.connection=tk.StringVar(value='Проверяем сохранённый вход…');ttk.Label(p,textvariable=self.connection,wraplength=710).pack(anchor='w',pady=8)
-        self.mode=tk.BooleanVar();ttk.Checkbutton(p,text='Добавить образец голоса (только микрофон)',variable=self.mode).pack(anchor='w')
-        self.name=tk.StringVar();ttk.Label(p,text='Для образца голоса укажите имя и фамилию:').pack(anchor='w');ttk.Entry(p,textvariable=self.name).pack(fill='x',pady=(2,10))
-        self.levels=[]
-        for text in ['Комната · микрофон Windows','Звонок · звук компьютера Windows']:
-            ttk.Label(p,text=text).pack(anchor='w');bar=ttk.Progressbar(p,maximum=1);bar.pack(fill='x',pady=(3,8));self.levels.append(bar)
-        row=ttk.Frame(p);row.pack(fill='x',pady=8)
-        self.start_button=ttk.Button(row,text='● Начать запись',command=self.start);self.start_button.pack(side='left')
-        self.stop_button=ttk.Button(row,text='■ Завершить и отправить',command=self.finish,state='disabled');self.stop_button.pack(side='left',padx=8)
-        ttk.Button(row,text='Результаты',command=lambda:webbrowser.open(self.server.get())).pack(side='right')
-        self.status=tk.StringVar(value='Устройства выбираются автоматически при начале записи.');ttk.Label(p,textvariable=self.status,wraplength=710).pack(anchor='w',pady=8)
-        footer=ttk.Frame(p);footer.pack(fill='x')
-        ttk.Button(footer,text='Папка записей',command=lambda:os.startfile(self.last_folder)).pack(side='left')
-        self.update_button=ttk.Button(footer,text='Проверить обновление',command=self.update_app);self.update_button.pack(side='right')
+        from recorder_view import draw_view
+        draw_view(self)
         self.root.protocol('WM_DELETE_WINDOW',self.close)
         self.run(self.restore,lambda value:self.connection.set(value));self.root.after(100,self.tick);self.root.after(2000,self.send_queue)
     def run(self,fn,done):
@@ -49,7 +23,9 @@ class App:
     def restore(self):
         settings=bridge(op='settings');self.events.put((self.apply_settings,settings,None))
         return bridge(op='check') if settings['configured'] else 'Укажите сервер и сохраните подключение. Запись сохраняется и без сети.'
-    def apply_settings(self,s):self.server.set(s['server']);self.user.set(s['username'])
+    def apply_settings(self,s):
+        self.server.set(s['server']);self.user.set(s['username'])
+        if s.get('configured'):self.hide_settings()
     def update_app(self):
         if self.busy or self.session:return
         self.busy=True;self.status.set('Проверяем подписанное обновление…')
@@ -105,13 +81,17 @@ class App:
         idle=not self.session and not self.busy
         for btn in [self.start_button,self.update_button]:btn.config(state='normal' if idle else 'disabled')
         session=self.session
-        if session and not self.busy:
+        active=bool(session and not self.busy)
+        self.badge.config(text=('●  ЗАПИСЬ' if active else ('●  ПОДОЖДИТЕ' if self.busy else '●  ГОТОВ')),fg='#ff917e' if active else '#65edd0')
+        for i,meter in enumerate(self.levels):
+            src=session.sources[i] if active and i<len(session.sources) else None
+            meter.sample(src.peak if src and time.monotonic()-session.epoch-getattr(src,'last',-100)<1 else 0)
+        if active:
             elapsed=time.monotonic()-session.epoch
             silent=[('Комната' if s.kind=='microphone' else 'Звонок') for s in session.sources if s.max_peak<.0001]
             hint=('Пока нет сигнала: '+', '.join(silent)) if silent else 'Звук получен со всех источников.'
             self.status.set(f'● Запись {int(elapsed)//60:02}:{int(elapsed)%60:02}   {hint}')
-            for i,source in enumerate(session.sources):
-                self.levels[i]['value']=source.peak if time.monotonic()-session.epoch-getattr(source,'last',-100)<1 else 0
+            seconds=int(elapsed);self.clock.config(text=f'{seconds//3600:02}:{seconds//60%60:02}:{seconds%60:02}')
             if any(s.error for s in session.sources) or (session.voice and elapsed>=40):self.finish()
         self.root.after(100,self.tick)
     def close(self):

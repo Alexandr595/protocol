@@ -4,7 +4,7 @@ from pathlib import Path
 from msilib import schema,sequence
 root=Path(__file__).resolve().parent
 dest=Path(sys.argv[1]).resolve()
-version="0.10.1"
+version="0.10.2"
 guid=lambda key:"{"+str(uuid.uuid5(uuid.NAMESPACE_URL,"protocol.internal/"+key)).upper()+"}"
 db=m.init_database(str(dest),schema,"Protocol",guid("product/"+version),version,"Protocol")
 summary=db.GetSummaryInformation(1)
@@ -32,7 +32,8 @@ def folder(p):
         parent=folder(p.parent)
         dirs[p]=m.Directory(db,cab,parent,p.name,"D"+str(len(dirs)),parent.make_short(p.name)+"|"+p.name)
     return dirs[p]
-files=[root/n for n in ["Protocol.exe","DeliveryBridge.exe","WindowsMic.exe","launch.py","recorder_app.py","capture_worker.py","portable_session.py","update-public.xml"]]
+files=[root/n for n in ["Protocol.exe","DeliveryBridge.exe","WindowsMic.exe","launch.py","recorder_app.py","recorder_view.py","protocol.ico","capture_worker.py","portable_session.py","update-public.xml"]]
+rows("Icon",[("ProtocolIcon.exe",m.Binary(str(root/"protocol.ico")))])
 for name in ("audio-runtime","audio-packages"):
     files+=sorted(p for p in (root/name).rglob("*") if p.is_file() and "__pycache__" not in p.parts and p.suffix!=".pyc")
 for p in files:
@@ -40,8 +41,8 @@ for p in files:
     if not d.component:d.start_component(flags=0,keyfile=p.name,uuid=guid("component/"+str(p.parent.relative_to(root))))
     ident=d.add_file(p.name,src=str(p))
     if p.name=="Protocol.exe":
-        rows("Shortcut",[("StartProtocol","ProgramMenuFolder","Protocol",d.component,"[#"+ident+"]",None,"Meeting recorder",None,None,None,None,"INSTALLDIR")])
-        rows("Shortcut",[("DesktopProtocol","DesktopFolder","Protocol",d.component,"[#"+ident+"]",None,"Meeting recorder",None,None,None,None,"INSTALLDIR")])
+        for key,location in [("StartProtocol","ProgramMenuFolder"),("DesktopProtocol","DesktopFolder")]:
+            rows("Shortcut",[(key,location,"Protocol",d.component,"[#"+ident+"]",None,"Meeting recorder",None,"ProtocolIcon.exe",0,None,"INSTALLDIR")])
         rows("CustomAction",[("LaunchProtocol",210,ident,None)])
         dlg=m.Dialog(db,"ProtocolReady",50,50,310,110,3,"Protocol","Open","Open","Close")
         dlg.text("Info",12,14,288,38,3,"Protocol is installed. You can also open it from your desktop or the Start menu.")

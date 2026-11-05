@@ -92,7 +92,7 @@ class Session:
         except Exception:
             self.finish();raise
     def save(self,status):
-        with self.journal_lock:save(self.folder/'session.json',dict(version='0.10.1',status=status,elapsedSeconds=time.monotonic()-self.epoch,sources=[s.snapshot() for s in self.sources]))
+        with self.journal_lock:save(self.folder/'session.json',dict(version='0.10.2',status=status,elapsedSeconds=time.monotonic()-self.epoch,sources=[s.snapshot() for s in self.sources]))
     def finish(self):
         for s in self.sources:s.stop()
         for s in self.sources:s.join()
