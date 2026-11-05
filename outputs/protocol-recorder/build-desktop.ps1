@@ -27,11 +27,11 @@ try{
  New-Item -ItemType Directory -Path $Dist -Force | Out-Null
  if($LASTEXITCODE){throw 'Installer build failed'}
  $hash=(Get-FileHash "$Dist/ProtocolSetup.msi" -Algorithm SHA256).Hash.ToLowerInvariant()
- $signature=$rsa.SignData([Text.Encoding]::UTF8.GetBytes("Protocol Windows`n0.10.0`n$hash"),'SHA256')
- $manifest=@{version='0.10.0';sha256=$hash;signature=[Convert]::ToBase64String($signature)} | ConvertTo-Json
+ $signature=$rsa.SignData([Text.Encoding]::UTF8.GetBytes("Protocol Windows`n0.10.1`n$hash"),'SHA256')
+ $manifest=@{version='0.10.1';sha256=$hash;signature=[Convert]::ToBase64String($signature)} | ConvertTo-Json
  [IO.File]::WriteAllText("$Dist/release.json",$manifest,[Text.UTF8Encoding]::new($false))
  $env:PROTOCOL_DIST=(Resolve-Path $Dist).Path
- & ./audio-runtime/python.exe -c "import os,zipfile,pathlib; p=pathlib.Path(os.environ['PROTOCOL_DIST']); z=zipfile.ZipFile(p/'Protocol-0.10.0.zip','w',zipfile.ZIP_STORED); [z.write(p/n,n) for n in ['ProtocolSetup.msi','release.json']];z.close()"
+ & ./audio-runtime/python.exe -c "import os,zipfile,pathlib; p=pathlib.Path(os.environ['PROTOCOL_DIST']); z=zipfile.ZipFile(p/'Protocol-0.10.1.zip','w',zipfile.ZIP_STORED); [z.write(p/n,n) for n in ['ProtocolSetup.msi','release.json']];z.close()"
  if($LASTEXITCODE){throw 'Release build failed'}
 }finally{Pop-Location;$rsa.Dispose()}
 

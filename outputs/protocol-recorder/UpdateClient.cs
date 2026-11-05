@@ -26,7 +26,7 @@ class UpdateClient{
  Dictionary<string,string> m;using(var rd=new StreamReader(info.Open()))m=new JavaScriptSerializer().Deserialize<Dictionary<string,string>>(rd.ReadToEnd());
  var signed=Encoding.UTF8.GetBytes("Protocol Windows\n"+m["version"]+"\n"+m["sha256"]);
  using(var rsa=new RSACryptoServiceProvider()){rsa.PersistKeyInCsp=false;rsa.FromXmlString(File.ReadAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"update-public.xml")));if(!rsa.VerifyData(signed,"SHA256",Convert.FromBase64String(m["signature"])))throw new Exception("Подпись обновления недействительна.");}
- if(new Version(m["version"])<=new Version("0.10.0"))return "Установлена актуальная версия 0.10.0.";
+ if(new Version(m["version"])<=new Version("0.10.1"))return "Установлена актуальная версия 0.10.1.";
  var entry=z.GetEntry("ProtocolSetup.msi");if(entry==null||entry.Length>100*1024*1024)throw new InvalidDataException();
  string exe=Path.Combine(tmp,"ProtocolSetup.msi");entry.ExtractToFile(exe);
  using(var sha=SHA256.Create())using(var f=File.OpenRead(exe)){if(BitConverter.ToString(sha.ComputeHash(f)).Replace("-","").ToLowerInvariant()!=m["sha256"])throw new Exception("Файл обновления повреждён.");}

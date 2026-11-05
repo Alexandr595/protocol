@@ -14,7 +14,9 @@ def rel(k):
     parent,name=paths[k];return rel(parent)/name
 comps=dict(rows("SELECT `Component`, `Directory_` FROM `Component`",2))
 files=rows("SELECT `File`, `Component_`, `FileName` FROM `File`",3)
-assert rows("SELECT `Shortcut` FROM `Shortcut`",1)==[("StartProtocol",)]
+assert set(rows("SELECT `Shortcut`, `Directory_` FROM `Shortcut`",2))=={("StartProtocol","ProgramMenuFolder"),("DesktopProtocol","DesktopFolder")}
+assert rows("SELECT `Argument` FROM `ControlEvent` WHERE `Event`='DoAction'",1)==[("LaunchProtocol",)]
+assert db.GetSummaryInformation(0).GetProperty(m.PID_WORDCOUNT)==10
 dll=C.windll.msi
 def handle(fn,*args):
     h=C.c_uint();code=fn(*args,C.byref(h));assert not code,code;return h

@@ -9,7 +9,7 @@ VOICES=HOME/'VoiceSamples';VOICES.mkdir(exist_ok=True)
 
 class App:
     def __init__(self):
-        self.root=tk.Tk();self.root.title('Протокол · 0.10.0');self.root.geometry('800x740');self.root.minsize(650,520)
+        self.root=tk.Tk();self.root.title('Протокол · 0.10.1');self.root.geometry('800x740');self.root.minsize(650,520)
         self.events=queue.Queue();self.session=None;self.busy=False;self.queue_busy=False;self.last_folder=STORE
         canvas=tk.Canvas(self.root,highlightthickness=0)
         scroll=ttk.Scrollbar(self.root,orient='vertical',command=canvas.yview)
