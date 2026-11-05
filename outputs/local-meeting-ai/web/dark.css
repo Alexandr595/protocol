@@ -1,0 +1,110 @@
+.record-light{display:inline-block;width:10px;height:10px;border-radius:50%;background:#8a9790;margin-right:7px}
+.is-recording{border-color:#e46b61!important;box-shadow:0 0 0 2px #e46b6122}
+.is-recording .record-light{background:#f5655b;animation:record-pulse 1.6s ease-in-out infinite}
+.is-recording #capture-badge{background:#752d2d;color:#fff}.is-recording #capture-time{color:#ef8177}
+#capture-time{font-variant-numeric:tabular-nums;font-size:24px;letter-spacing:1px}.source-meter{display:flex;flex-direction:column;gap:4px}
+#capture-path{overflow-wrap:anywhere}.capture-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+meter{height:12px;accent-color:#71c99b}.topbar{gap:12px}.topbar>span:first-child{margin-right:auto}
+@keyframes record-pulse{50%{box-shadow:0 0 0 7px #f5655b22}}
+@media(prefers-reduced-motion:reduce){.is-recording .record-light{animation:none}}
+html[data-theme=dark]{color-scheme:dark}
+html[data-theme=dark] body{background:#101714;color:#e0ebe4}
+html[data-theme=dark] .sidebar{background:#0b1511}
+html[data-theme=dark] .panel,html[data-theme=dark] .metrics>div,html[data-theme=dark] .system-card{background:#19231e;border-color:#314038}
+html[data-theme=dark] .topbar,html[data-theme=dark] .tabs,html[data-theme=dark] .jobs,html[data-theme=dark] .capture-panel details{border-color:#314038}
+html[data-theme=dark] .topbar strong,html[data-theme=dark] .metrics strong,html[data-theme=dark] .job-name,html[data-theme=dark] .result-body{color:#e0ebe4}
+html[data-theme=dark] .job{background:#19231e;border-color:#2e3b33;color:#e0ebe4}
+html[data-theme=dark] .job:hover,html[data-theme=dark] .job.selected{background:#263a2e}
+html[data-theme=dark] input,html[data-theme=dark] select,html[data-theme=dark] .secondary{background:#111d17!important;border-color:#46594b!important;color:#d5e6d9!important}
+html[data-theme=dark] .secondary:hover{background:#293d30!important}
+html[data-theme=dark] .muted,html[data-theme=dark] .page-heading p,html[data-theme=dark] .folder-content label,html[data-theme=dark] .info-panel p,html[data-theme=dark] .system-card p,html[data-theme=dark] .segment small,html[data-theme=dark] .job-meta,html[data-theme=dark] .queue-controls>span{color:#a9bcb0}
+html[data-theme=dark] .alert,html[data-theme=dark] .detail-notice,html[data-theme=dark] .pending-file{background:#302a1c;border-color:#5e5132;color:#ecd395}
+html[data-theme=dark] .alert p{color:#cfbc8a}
+html[data-theme=dark] .alert.error{background:#3e2423;border-color:#854940;color:#ffc5b8}
+html[data-theme=dark] .active-recording,html[data-theme=dark] .dropzone{background:#1c2d22;border-color:#3d5540}
+html[data-theme=dark] .active-recording>span:last-of-type,html[data-theme=dark] .tab,html[data-theme=dark] .download,html[data-theme=dark] .local-tag,html[data-theme=dark] summary{color:#a6c7ad}
+html[data-theme=dark] .tab.active{color:#c1e7ba;border-color:#94c785}
+html[data-theme=dark] .job-icon,html[data-theme=dark] .document-icon,html[data-theme=dark] .time,html[data-theme=dark] .upload-symbol{background:#2b3e2d;color:#b2d29f;border-color:#42573b}
+html[data-theme=dark] .badge{background:#344539;color:#d0dfca}
+html[data-theme=dark] .badge.error,html[data-theme=dark] .badge.needs_review{background:#4b3722;color:#ffe0ad}
+html[data-theme=dark] .badge.running{background:#263f50;color:#b3dcf9}
+html[data-theme=dark] .is-recording #capture-badge{background:#752d2d;color:#fff}
+@media(max-width:650px){.capture-fields{grid-template-columns:1fr}.topbar .local-tag{display:none}}
+
+.source-folder{padding:0 24px;overflow-wrap:anywhere}
+.voice-profile{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:18px 0;border-bottom:1px solid #85958a55}
+.voice-profile>div{min-width:0;overflow-wrap:anywhere}.voice-profile p{margin:5px 0 0}
+.voice-upload-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding-top:18px;border-top:1px solid #85958a55}
+#voice-editor .panel-heading{padding:0 0 12px}#voice-time{font-size:24px;font-variant-numeric:tabular-nums}
+#voice-status{overflow-wrap:anywhere}
+
+/* Shared layout: actions must wrap as a group at every panel width. */
+button,input,select{font:inherit}
+.primary,.secondary{font-size:12px;line-height:1.45;min-height:38px;white-space:normal}
+.brand{letter-spacing:-.6px;margin-bottom:36px}
+.brand-mark{font-size:28px}
+.topbar{min-height:64px;height:auto;padding-top:12px;padding-bottom:12px;flex-wrap:wrap}
+.panel-heading{gap:12px;flex-wrap:wrap}
+.panel-heading h2{line-height:1.5}
+.panel-heading h2 .record-light{width:10px;height:10px;padding:0;margin:0 7px 0 0;background:#718278;border-radius:50%}
+.is-recording .panel-heading h2 .record-light{background:#e14c48}
+.content-grid>*{min-width:0}
+.record-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:18px 24px}
+.record-actions #retry{margin:0}
+.record-actions button{max-width:100%;text-align:left}
+.capture-fields label{min-width:0}
+.capture-actions{gap:12px;row-gap:14px}
+.capture-actions button{max-width:100%}
+.capture-actions #capture-time{white-space:nowrap}
+.tabs{flex-wrap:wrap;gap:8px 20px;align-items:center}
+.tabs .tab{font-size:13px;line-height:1.5;white-space:normal;text-align:left}
+.tabs .download{padding:12px 0;font-size:12px}
+.queue-controls{flex-wrap:wrap}
+.job{flex-wrap:wrap;row-gap:8px}
+.job-main{flex-basis:150px}
+.badge{font-size:11px;line-height:1.4;white-space:normal;max-width:100%}
+.detail-heading>div{min-width:0}
+.detail-heading .badge{flex-shrink:0;max-width:45%}
+.muted,.job-meta,.queue-controls>span,.metrics span,.alert p{font-size:12px}
+.folder-content summary,.manual-upload summary,summary{line-height:1.6;cursor:pointer}
+.folder-options label{flex-wrap:wrap;min-width:0;max-width:100%}
+.folder-options select{max-width:100%}
+.pending-file{display:flex;gap:10px;flex-wrap:wrap;align-items:center;overflow-wrap:anywhere;font-size:12px}
+.pending-file button{flex-shrink:0}
+.trash-panel{padding:18px 22px;margin-top:22px}
+.trash-panel summary{font-size:14px;font-weight:600}
+.alert{align-items:flex-start}
+.alert>div{min-width:0;flex:1}
+.text-button{white-space:normal;font-size:12px;line-height:1.5}
+.source-folder,.result-body,.detail-notice,#capture-status{overflow-wrap:anywhere}
+.detail-empty p,.detail-empty small{font-size:12px}
+.toast{line-height:1.6;max-height:40vh;overflow:auto}
+/* Light palette: readable secondary text, controls and status labels. */
+html:not([data-theme=dark]){color-scheme:light}
+html:not([data-theme=dark]) body{background:#f2f5f3;color:#20372d}
+html:not([data-theme=dark]) :is(.muted,.page-heading p,.folder-content label,.info-panel p,.system-card p,.segment small,.job-meta,.queue-controls>span,.metrics span,.topbar,.eyebrow,.detail-empty p,.detail-empty small,.list-empty,.result-empty,.dropzone>span:not(.upload-symbol),.dropzone small){color:#52665b}
+html:not([data-theme=dark]) :is(.panel,.system-card,.metrics>div){border-color:#cbd7cf}
+html:not([data-theme=dark]) :is(input,select){color:#20372d;background:#fff;border-color:#9eafa4}
+html:not([data-theme=dark]) input::placeholder{color:#62766a;opacity:1}
+html:not([data-theme=dark]) :is(.secondary,.tab,.download,summary){color:#28543e}
+html:not([data-theme=dark]) .secondary{border-color:#a9bcb0;background:#fff}
+html:not([data-theme=dark]) .badge{background:#e5ece7;color:#3c5547}
+html:not([data-theme=dark]) .badge.needs_review,html:not([data-theme=dark]) .badge.error{background:#ffebd2;color:#78480c}
+html:not([data-theme=dark]) .badge.running{background:#dfeefa;color:#285675}
+html:not([data-theme=dark]) :is(.alert,.detail-notice,.pending-file){color:#69521f;background:#fff6df;border-color:#dec58b}
+html:not([data-theme=dark]) :is(.alert p,.text-button){color:#6d5520}
+html:not([data-theme=dark]) .active-recording>span:last-of-type{color:#45613e}
+html:not([data-theme=dark]) .time{color:#365a2d;background:#e6efdf}
+html:not([data-theme=dark]) .primary{color:#fff}
+html[data-theme=dark] :is(.metrics span,.eyebrow,.topbar,.detail-empty p,.detail-empty small,.list-empty,.result-empty,.dropzone>span:not(.upload-symbol),.dropzone small){color:#a9bcb0}
+html[data-theme=dark] .text-button{color:#ecd395}
+html[data-theme=dark] input::placeholder{color:#9bb0a2;opacity:1}
+@media(max-width:650px){
+ .brand{margin-bottom:14px}.nav{min-height:38px}.page-heading{gap:14px}
+ .folder-path-row{flex-wrap:wrap}.folder-path-row input{flex-basis:100%;width:100%}
+ .record-actions{margin:16px}.record-actions button{flex:1 1 180px}
+ .tabs{margin:16px 16px 0;gap:4px 16px}.tabs .download{margin-left:0}
+ .result-body{padding:18px 16px}.detail-heading{padding:20px 16px 12px}
+ .detail-heading .badge{max-width:100%}.capture-actions #capture-time{flex-basis:100%}
+ .job .badge{margin-left:46px}.trash-panel{padding:16px}
+}

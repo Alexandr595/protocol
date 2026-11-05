@@ -1,0 +1,19 @@
+{
+  "asr_model": "../../work/models/whisper-turbo",
+  "asr_device": "cpu",
+  "asr_compute_type": "int8",
+  "language": "ru",
+  "llama_exe": "../../work/runtime/llama/llama-server.exe",
+  "summary_model": "../../work/models/Qwen3.5-27B-Q4_K_M.gguf",
+  "summary_gpu_layers": 12,
+  "summary_device": "Vulkan0",
+  "summary_context": 16384,
+  "summary_port": 18764,
+  "speaker_segmentation": "../../work/models/speakers/model.onnx",
+  "speaker_embedding": "../../work/models/speakers/wespeaker_en_voxceleb_resnet34_LM.onnx",
+  "speaker_identity_threshold": 0.65,
+  "speaker_identity_margin": 0.1,
+  "speaker_cluster_threshold": 0.5,
+  "summary_load_timeout": 900,
+  "summary_request_timeout": 86400
+}
