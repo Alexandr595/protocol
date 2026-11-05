@@ -155,7 +155,11 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(403, {'error': 'Недопустимый адрес'})
             return
         path = urllib.parse.urlsplit(self.path).path
-        if not self.authenticate(): return
+        if path in {'/ProtocolSetup.msi', '/client.zip'}:
+            if not network.allowed_address(self.client_address[0]):
+                self.respond(403, {'error':'Скачивание доступно только в локальной сети.'})
+                return
+        elif not self.authenticate(): return
         static = {'/': 'index.html', '/app.js': 'app.js', '/queue-ui.js':'queue-ui.js', '/recording-ui.js':'recording-ui.js', '/style.css': 'style.css', '/dark.css':'dark.css', '/lifecycle-ui.js':'lifecycle-ui.js'}
         if path in static:
             file = ROOT / 'web' / static[path]

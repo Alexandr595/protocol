@@ -21,11 +21,13 @@ class NetworkAccess:
         if self.enabled: names.update(self.config.get('hosts', []))
         return host in {f'{name}:{port}' for name in names}
 
-    def authorized(self, address, authorization):
+    def allowed_address(self, address):
         address = ipaddress.ip_address(address)
-        if address.is_loopback: return True
-        if not self.enabled or not any(address in ipaddress.ip_network(n) for n in self.config.get('networks', [])):
-            return False
+        return address.is_loopback or (self.enabled and any(address in ipaddress.ip_network(n) for n in self.config.get('networks', [])))
+
+    def authorized(self, address, authorization):
+        if ipaddress.ip_address(address).is_loopback: return True
+        if not self.allowed_address(address): return False
         try:
             scheme, encoded = (authorization or '').split(' ', 1)
             if scheme.lower() != 'basic': return False
