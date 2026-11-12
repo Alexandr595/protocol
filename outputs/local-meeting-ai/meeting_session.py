@@ -31,7 +31,7 @@ def manifest(archive):
         seen.add(source['source'])
         for part in source.get('segments',[]):
             name=part['file']
-            if not isinstance(name,str) or '/' in name or '\\' in name or ':' in name or not name.endswith('.wav') or name not in names or name in files:
+            if not isinstance(name,str) or '/' in name or '\\' in name or ':' in name or not name.endswith(('.wav','.webm','.mp4','.ogg')) or name not in names or name in files:
                 raise ValueError('Неверное имя аудиофайла.')
             files.add(name)
             for key in ('firstPacketSeconds','audioSeconds'):
@@ -83,7 +83,7 @@ def merge(parts, warnings):
     return result
 
 
-def process(path,destination):
+def process(path,destination, force_diarize=False):
     """Analyze each source separately, with gaps restored on disk before diarization."""
     import numpy as np
     from audio_io import decoded_audio
@@ -96,6 +96,8 @@ def process(path,destination):
             parts=source.get('segments',[])
             if not parts:
                 warnings.append(label+': аудиоданные не поступили; источник не записан.');continue
+            if data.get('expectedSources') and not source.get('error') and source.get('maxPeak',1)<=.0001:
+                continue  # Captured silence isn't an interrupted recording.
             # Float raw file can grow past WAV's 4 GB limit; sparse gaps retain the timeline.
             raw=base/'timeline.f32';wav=base/'timeline.wav'
             if not wav.exists():
@@ -122,11 +124,12 @@ def process(path,destination):
             if not transcript.exists():
                 subprocess.run([sys.executable,str(core.ROOT/'meeting_ai.py'),'_asr',str(wav),str(transcript)],check=True)
             text=json.loads(transcript.read_text(encoding='utf-8'))
-            if text.get('speaker_status')!='identified' and text['segments']:
+            if (force_diarize or text.get('speaker_status')!='identified') and text['segments']:
                 subprocess.run([sys.executable,str(core.ROOT/'speakers.py'),'diarize',str(wav),str(transcript)],check=True)
                 text=json.loads(transcript.read_text(encoding='utf-8'))
             if not text['segments']:warnings.append(label+': разборчивая речь не обнаружена.')
             results.append((label,0,text))
     present={s['source'] for s in data['sources']}
-    for missing in {'microphone','computer'}-present:warnings.append(missing+': источник отсутствует.')
+    expected=data.get('expectedSources',['microphone','computer'])
+    for missing in set(expected)-present:warnings.append(missing+': источник отсутствует.')
     core.save(destination,merge(results,warnings))

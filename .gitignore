@@ -23,3 +23,11 @@
 *.db
 work/*
 !work/test_meeting_session.py
+
+*.key
+*.cer
+*.onnx
+*.gguf
+*.webm
+*.mp3
+*.mp4

@@ -1,5 +1,8 @@
 """Loopback-only web interface. Standard library, no remote assets or services."""
 import json
+import ssl
+from browser_tls import MeetingServer
+from browser_meeting import receive as receive_meeting
 import mimetypes
 import os
 from pathlib import Path
@@ -160,7 +163,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(403, {'error':'Скачивание доступно только в локальной сети.'})
                 return
         elif not self.authenticate(): return
-        static = {'/': 'index.html', '/app.js': 'app.js', '/queue-ui.js':'queue-ui.js', '/recording-ui.js':'recording-ui.js', '/style.css': 'style.css', '/dark.css':'dark.css', '/lifecycle-ui.js':'lifecycle-ui.js'}
+        if path == '/Protocol-LAN.cer':
+            self.respond(200, (ROOT/'state/https/Protocol-LAN.cer').read_bytes(), 'application/pkix-cert')
+            return
+        static = {'/record':'browser.html','/record.js':'browser.js','/': 'index.html', '/app.js': 'app.js', '/queue-ui.js':'queue-ui.js', '/recording-ui.js':'recording-ui.js', '/style.css': 'style.css', '/dark.css':'dark.css', '/lifecycle-ui.js':'lifecycle-ui.js'}
         if path in static:
             file = ROOT / 'web' / static[path]
             self.respond(200, file.read_bytes(), (mimetypes.guess_type(str(file))[0] or 'text/plain') + '; charset=utf-8')
@@ -263,7 +269,7 @@ class Handler(BaseHTTPRequestHandler):
         global worker, worker_error
         # Custom header + same-origin policy prevents cross-site form submissions.
         if (not self.valid_host() or self.headers.get('X-Local-App') != 'meeting-ai'
-                or self.headers.get('Origin') not in {None, 'http://' + self.headers.get('Host', '')}):
+                or self.headers.get('Origin') not in {None, ('https://' if isinstance(self.connection, ssl.SSLSocket) else 'http://') + self.headers.get('Host', '')}):
             self.close_connection = True
             # Consume small rejected requests so Windows does not reset the socket
             # with an unread body before the client receives the error response.
@@ -281,14 +287,16 @@ class Handler(BaseHTTPRequestHandler):
             if shutting_down.is_set():raise ValueError('Сервер останавливается.')
             path = urllib.parse.urlsplit(self.path).path
             data = {}
-            if path not in {'/api/upload','/api/voices/upload'}:
+            if path not in {'/api/upload','/api/voices/upload','/api/browser-meeting'}:
                 length = int(self.headers.get('Content-Length','0'))
                 if length > 8192 or length < 0:
                     raise ValueError('Слишком большой запрос')
                 data = json.loads(self.rfile.read(length)) if length else {}
                 if not isinstance(data,dict):
                     raise ValueError('Неверный формат запроса')
-            if path == '/api/upload':
+            if path == '/api/browser-meeting':
+                self.respond(200, receive_meeting(self))
+            elif path == '/api/upload':
                 self.upload()
             elif path == '/api/shutdown':
                 if self.client_address[0] != '127.0.0.1':raise ValueError('Останавливать сервер можно только на самом сервере.')
@@ -432,7 +440,7 @@ if __name__ == '__main__':
     os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
     core.database().close()
     watcher = FolderWatcher()
-    server = ThreadingHTTPServer((network.bind, PORT), Handler)
+    server = MeetingServer((network.bind, PORT), Handler, ROOT/"state")
     core.save(ROOT/'state/server.json', {'pid':os.getpid(),'port':PORT})
     threading.Thread(target=monitor_folder,daemon=True).start()
     print('Локальный интерфейс:', ORIGIN, flush=True)

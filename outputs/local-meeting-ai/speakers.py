@@ -22,7 +22,12 @@ def available():
 
 def registry():
     path=core.ROOT/'voices/profiles.json'
-    return json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'version':1,'people':[]}
+    bank=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {'version':2,'people':[]}
+    expected=paths()[1].name
+    actual=bank.get('embedding_model','wespeaker_en_voxceleb_resnet34_LM.onnx')
+    if bank['people'] and actual!=expected:
+        raise ValueError('Профили голосов созданы другой моделью. Перенесите профили перед распознаванием.')
+    return bank
 
 
 def public_profiles():
@@ -108,7 +113,9 @@ def enroll(source,name):
     with decoded_audio(source,core.ROOT/'state') as audio:
         if len(audio)>16000*180:raise ValueError('Образец голоса должен быть короче 3 минут.')
         turns=[{'start':r.start,'end':r.end,'speaker':r.speaker} for r in diarizer.process(audio).sort_by_start_time()]
-        ids=set(t['speaker'] for t in turns)
+        ids={t['speaker'] for t in turns}
+        # Ignore segmentation fragments that cannot supply a usable voice sample.
+        ids={sid for sid in ids if sum(b-a for a,b in clean_intervals(turns,sid))>=2}
         if len(ids)!=1:raise ValueError('Нужна запись одного человека без посторонних голосов и музыки.')
         intervals=clean_intervals(turns,next(iter(ids)))
         total=sum(b-a for a,b in intervals)
@@ -125,12 +132,14 @@ def enroll(source,name):
         vector=normalize(old*person['samples']+vector)
         person.update(embedding=vector.tolist(),samples=person['samples']+1,speech_seconds=round(person['speech_seconds']+seconds,1))
     else:
-        duplicate,score=match_voice(vector,bank['people'])
-        if duplicate and score>=0.85:raise ValueError('Похожий голос уже сохранён под именем «'+duplicate['name']+'». Проверьте имя.')
         person={'id':uuid.uuid4().hex,'name':name,'embedding':vector.tolist(),'samples':1,'speech_seconds':round(seconds,1)}
         bank['people'].append(person)
+    samples=person.setdefault('source_samples',[])
+    resolved=str(Path(source).resolve())
+    if resolved not in samples:samples.append(resolved)
+    bank.update(version=2,embedding_model=paths()[1].name)
     core.save(core.ROOT/'voices/profiles.json',bank)
-    return {k:v for k,v in person.items() if k!='embedding'}
+    return {k:person[k] for k in ('id','name','samples','speech_seconds')}
 
 
 def label_interval(start,end,turns,names):
@@ -146,6 +155,39 @@ def label_interval(start,end,turns,names):
     sid=ordered[0]
     if overlaps[sid]<max(.02,(end-start)*.35):return None,'Говорящий не определён',False
     return sid,names[sid],False
+
+
+def assign_words(segments, turns, names):
+    from itertools import chain, pairwise
+    starts=[t['start'] for t in turns];max_ends=[]
+    for turn in turns:max_ends.append(max(turn['end'],max_ends[-1] if max_ends else 0))
+    rows=[]
+    def intersect(left,right):
+        return turns[bisect.bisect_right(max_ends,left):bisect.bisect_left(starts,right)]
+
+    words = (word for segment in segments for word in
+             (segment.get('words') or [{'start':segment['start'],'end':segment['end'],'word':' '+segment['text']}]))
+    for word, following in pairwise(chain(words,[None])):
+        start,end=word['start'],word['end']
+        candidates=intersect(start,end)
+        sid,name,ambiguous=label_interval(start,end,candidates,names)
+        # ASR sometimes includes leading silence in the first word. Anchor its
+        # audible tail to the next word only inside one uninterrupted voice turn.
+        if sid is None and following and len(candidates)==1 and 0<=following['start']-end<=0.15:
+            turn=candidates[0]
+            next_turns=intersect(following['start'],following['end'])
+            tail=end-turn['start']
+            if (start<turn['start'] and tail>=max(.30,.20*(end-start))
+                    and next_turns==candidates and following['start']+.20<=turn['end']
+                    and label_interval(following['start'],following['end'],next_turns,names)[0]==turn['speaker']):
+                sid=turn['speaker']
+                name=names[sid]
+        if rows and rows[-1]['speaker']==name and start-rows[-1]['end']<1.2:
+            rows[-1]['end']=end;rows[-1]['text']+=word['word'];rows[-1]['words'].append(word)
+        else:
+            rows.append({'start':start,'end':end,'text':word['word'],'speaker':name,'speaker_id':sid,'ambiguous':ambiguous,'words':[word]})
+    for row in rows:row['text']=row['text'].strip()
+    return rows
 
 
 def diarize(source,transcript):
@@ -197,22 +239,7 @@ def diarize(source,transcript):
                 left,right=max(begin,offset+turn['start']),min(end,offset+turn['end'])
                 if right>left:turns.append({'start':left,'end':right,'speaker':mapping[turn['speaker']]})
     turns.sort(key=lambda t:t['start'])
-    starts=[t['start'] for t in turns];max_ends=[]
-    for turn in turns:max_ends.append(max(turn['end'],max_ends[-1] if max_ends else 0))
-    rows=[]
-    for segment in data['segments']:
-        words=segment.get('words') or [{'start':segment['start'],'end':segment['end'],'word':' '+segment['text']}]
-        for word in words:
-            start,end=word['start'],word['end']
-            # Only intervals intersecting this word: avoids scanning a day's turns
-            # for every word, including when source timestamps overlap.
-            candidates=turns[bisect.bisect_right(max_ends,start):bisect.bisect_left(starts,end)]
-            sid,name,ambiguous=label_interval(start,end,candidates,names)
-            if rows and rows[-1]['speaker']==name and start-rows[-1]['end']<1.2:
-                rows[-1]['end']=end;rows[-1]['text']+=word['word'];rows[-1]['words'].append(word)
-            else:
-                rows.append({'start':start,'end':end,'text':word['word'],'speaker':name,'speaker_id':sid,'ambiguous':ambiguous,'words':[word]})
-    for row in rows:row['text']=row['text'].strip()
+    rows=assign_words(data['segments'],turns,names)
     data.update(segments=rows,speaker_turns=turns,identities=identities,speaker_status='identified',voice_profiles=len(bank['people']),
                 unknown_speakers=sum(x['person_id'] is None for x in identities.values()))
     core.save(transcript,data)

@@ -385,9 +385,13 @@ def run(watch=False, stop_event=None, collect=True, can_process=None):
                 data = json.loads(transcript.read_text(encoding='utf-8'))
                 if data.get('speaker_status') != 'identified' and data['segments']:
                     save(folder / 'progress.json', {'stage': 'diarizing'})
-                    result = subprocess.run([sys.executable, str(Path(__file__).with_name('speakers.py')), 'diarize', row['path'], str(transcript)], capture_output=True, text=True, encoding='utf-8', creationflags=subprocess.CREATE_NO_WINDOW)
-                    if result.returncode:
-                        raise RuntimeError(result.stderr[-1500:] or 'Ошибка определения голосов')
+                    if Path(row['path']).suffix.lower() == '.meeting':
+                        from meeting_session import process
+                        process(row['path'], transcript, force_diarize=True)
+                    else:
+                        result = subprocess.run([sys.executable, str(Path(__file__).with_name('speakers.py')), 'diarize', row['path'], str(transcript)], capture_output=True, text=True, encoding='utf-8', creationflags=subprocess.CREATE_NO_WINDOW)
+                        if result.returncode:
+                            raise RuntimeError(result.stderr[-1500:] or 'Ошибка определения голосов')
                     data = json.loads(transcript.read_text(encoding='utf-8'))
                     (folder / 'summary.md').unlink(missing_ok=True)
                 (folder / 'transcript.txt').write_text('\n'.join(transcript_lines(data)), encoding='utf-8')
