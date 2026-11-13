@@ -167,7 +167,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/Protocol-LAN.cer':
             self.respond(200, (ROOT/'state/https/Protocol-LAN.cer').read_bytes(), 'application/pkix-cert')
             return
-        static = {'/record':'browser.html','/record.js':'browser.js','/': 'index.html', '/app.js': 'app.js', '/queue-ui.js':'queue-ui.js', '/recording-ui.js':'recording-ui.js', '/style.css': 'style.css', '/dark.css':'dark.css', '/lifecycle-ui.js':'lifecycle-ui.js'}
+        static = {'/theme.js':'theme.js','/record':'browser.html','/record.js':'browser.js','/': 'index.html', '/app.js': 'app.js', '/queue-ui.js':'queue-ui.js', '/recording-ui.js':'recording-ui.js', '/style.css': 'style.css', '/dark.css':'dark.css', '/lifecycle-ui.js':'lifecycle-ui.js'}
         if path in static:
             file = ROOT / 'web' / static[path]
             self.respond(200, file.read_bytes(), (mimetypes.guess_type(str(file))[0] or 'text/plain') + '; charset=utf-8')

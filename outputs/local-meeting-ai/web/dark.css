@@ -108,3 +108,6 @@ html[data-theme=dark] input::placeholder{color:#9bb0a2;opacity:1}
  .detail-heading .badge{max-width:100%}.capture-actions #capture-time{flex-basis:100%}
  .job .badge{margin-left:46px}.trash-panel{padding:16px}
 }
+
+html[data-theme=light]{color-scheme:light}
+html[data-theme=dark] .integrated-recorder{background:#101714;color:#e0ebe4}
