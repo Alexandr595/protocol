@@ -59,7 +59,7 @@ function showRecorder(address){
  }
  if(!recorderPanel){
   recorderPanel=document.createElement('section');recorderPanel.className='integrated-recorder';
-  const back=document.createElement('button');back.className='secondary';back.textContent='← К списку встреч (запись продолжается)';
+  const back=document.createElement('button');back.className='secondary';back.textContent='← К списку встреч';
   back.onclick=()=>{recorderPanel.hidden=true};
   recorderFrame=document.createElement('iframe');recorderFrame.title='Запись встречи';
   recorderFrame.allow='microphone; display-capture';

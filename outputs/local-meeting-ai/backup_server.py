@@ -1,5 +1,4 @@
 """Explicit offline backup of recordings, results, profiles and queue; no models."""
-import json
 import time
 import urllib.request
 import zipfile

@@ -14,9 +14,10 @@ import meeting_ai as core
 def manifest(archive):
     entries=archive.infolist()
     names=[e.filename for e in entries]
-    if len(names)!=len(set(names)) or len(names)>100000:
+    name_set=set(names)
+    if len(names)!=len(name_set) or len(names)>100000:
         raise ValueError('Повторяющиеся файлы или слишком большой список файлов.')
-    if 'session.json' not in names or archive.getinfo('session.json').file_size>1024*1024:
+    if 'session.json' not in name_set or archive.getinfo('session.json').file_size>1024*1024:
         raise ValueError('Нет корректного описания встречи.')
     data=json.loads(archive.read('session.json').decode('utf-8-sig'))
     if data.get('status') not in {'stopped','capture_error'}:
@@ -31,7 +32,7 @@ def manifest(archive):
         seen.add(source['source'])
         for part in source.get('segments',[]):
             name=part['file']
-            if not isinstance(name,str) or '/' in name or '\\' in name or ':' in name or not name.endswith(('.wav','.webm','.mp4','.ogg')) or name not in names or name in files:
+            if not isinstance(name,str) or '/' in name or '\\' in name or ':' in name or not name.endswith(('.wav','.webm','.mp4','.ogg')) or name not in name_set or name in files:
                 raise ValueError('Неверное имя аудиофайла.')
             files.add(name)
             for key in ('firstPacketSeconds','audioSeconds'):
@@ -39,7 +40,7 @@ def manifest(archive):
                 if not isinstance(value,(int,float)) or not math.isfinite(value) or value<0:
                     raise ValueError('Неверные временные метки.')
     if not files:raise ValueError('В записи нет аудиоданных ни одного источника.')
-    if set(names)!=files|{'session.json'}:raise ValueError('В пакете есть посторонние файлы.')
+    if name_set!=files|{'session.json'}:raise ValueError('В пакете есть посторонние файлы.')
     return data
 
 

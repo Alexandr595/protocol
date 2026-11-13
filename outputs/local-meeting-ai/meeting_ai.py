@@ -39,9 +39,13 @@ def resolve(value):
 
 def save(path, data):
     path = Path(path)
-    temp = path.with_suffix(path.suffix + '.' + uuid.uuid4().hex + '.tmp')
-    temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
-    temp.replace(path)
+    # Keep the temporary name short for deeply nested Windows data folders.
+    temp = path.parent / (uuid.uuid4().hex + '.tmp')
+    try:
+        temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+        temp.replace(path)
+    finally:
+        temp.unlink(missing_ok=True)
 
 
 def database():

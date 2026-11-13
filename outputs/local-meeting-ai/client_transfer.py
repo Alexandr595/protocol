@@ -4,7 +4,6 @@ import ctypes
 import http.client
 import json
 import re
-import ssl
 import urllib.parse
 from pathlib import Path
 import meeting_ai as core

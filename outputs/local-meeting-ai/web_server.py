@@ -1,4 +1,4 @@
-"""Loopback-only web interface. Standard library, no remote assets or services."""
+"""Local/LAN web interface. Standard library, no remote assets or services."""
 import json
 import ssl
 from browser_tls import MeetingServer
@@ -8,11 +8,10 @@ import os
 from pathlib import Path
 import re
 import shutil
-import sys
 import threading
 import time
 import urllib.parse
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 import uuid
 
 import meeting_ai as core

@@ -3,7 +3,6 @@ import json
 import os
 from pathlib import Path
 import threading
-import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 import meeting_ai as core

@@ -6,7 +6,7 @@ const params = new URLSearchParams(location.search), voice = params.has('voice')
 let db, current, streams = [], recorders = [], writes = [], timer, stopping = false, storageError;
 const uploading = new Set();
 const micDevice=byId('mic-device'), micList=byId('mic-list');
-let checkingDevices=false, meterContext, meterTimer;
+let checkingDevices=false, starting=false, meterContext, meterTimer;
 function lockInputs(locked){
   micDevice.disabled=locked;micList.disabled=locked;
 }
@@ -171,6 +171,8 @@ function hint(){
     'Выберите вкладку звонка или экран и включите передачу звука. Сохраняется только аудио.';
 }
 start.onclick=async()=>{
+  if(starting || current || stopping)return;
+  starting=true;
   start.disabled=true; mode.disabled=true;lockInputs(true);byId('mic-note').textContent='';
   const name=byId('title').value.trim();
   let stage='Микрофон комнаты';
@@ -233,7 +235,7 @@ start.onclick=async()=>{
     if(current){await finish(e.message);return;}
     release();unlockSession?.();unlockSession=null;start.disabled=false;mode.disabled=voice;lockInputs(false);
     say(stage+' — '+(e.name==='NotAllowedError'?'доступ не предоставлен или выбор отменён':e.message));
-  }
+  }finally{starting=false;}
 };
 stop.onclick=()=>finish();
 mode.onchange=hint;
@@ -255,7 +257,7 @@ async function setup(){
 }
 setup().catch(e=>say(e.message));
 
-window.protocolRecorderBusy=()=>Boolean(current||stopping||uploading.size);
+window.protocolRecorderBusy=()=>Boolean(starting||checkingDevices||current||stopping||uploading.size);
 if(params.has('embedded')){
  document.querySelector('main > a').onclick=event=>{event.preventDefault();parent.postMessage('protocol:back',location.origin)};
  byId('voice-profiles-link').onclick=event=>{event.preventDefault();parent.postMessage('protocol:voices',location.origin)};
