@@ -19,7 +19,7 @@ from folder_watch import FolderWatcher
 import speakers
 from recording import Recorder
 from network_access import NetworkAccess
-from record_lifecycle import change as change_record
+from record_lifecycle import change as change_record, purge, purge_expired
 
 PORT = int(os.environ.get('MEETING_UI_PORT', '18765'))
 ORIGIN = f'http://127.0.0.1:{PORT}'
@@ -52,8 +52,12 @@ def start_worker():
 
 
 def monitor_folder():
+    next_cleanup = 0
     while True:
         try:
+            if time.monotonic() >= next_cleanup:
+                next_cleanup = time.monotonic() + 3600
+                purge_expired()
             watcher.scan()
             if watcher.snapshot()['processing_enabled'] and not worker_error:
                 start_worker()
@@ -90,7 +94,7 @@ def job(key):
 
 def trash_records():
     with core.database() as db:
-        return [dict(r) for r in db.execute("SELECT id,name,deleted_at FROM jobs WHERE status='deleted' ORDER BY deleted_at DESC")]
+        return [dict(r) for r in db.execute("SELECT id,name,deleted_at,status FROM jobs WHERE status IN ('deleted','purging') ORDER BY deleted_at DESC")]
 
 
 def public_job(row):
@@ -309,8 +313,9 @@ class Handler(BaseHTTPRequestHandler):
                     threading.Thread(target=self.server.shutdown,daemon=True).start()
             elif path == '/api/voices/upload':
                 self.upload(voice=True)
-            elif match := re.fullmatch(r'/api/jobs/([a-f0-9]{64})/(trash|restore|summarize)',path):
-                change_record(match[1],match[2])
+            elif match := re.fullmatch(r'/api/jobs/([a-f0-9]{64})/(trash|restore|summarize|purge)',path):
+                if match[2]=='purge': purge(match[1])
+                else: change_record(match[1],match[2])
                 self.respond(200,{'ok':True})
             elif path == '/api/recording/start':
                 self.respond(200,recorder.start(data.get('device'),data.get('purpose','meeting'),data.get('name',''),data.get('system_device')))
