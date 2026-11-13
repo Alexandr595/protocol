@@ -31,3 +31,6 @@ work/*
 *.webm
 *.mp3
 *.mp4
+
+# Generated regression-test fixtures
+tests/*-tests/
