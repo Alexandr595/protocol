@@ -81,7 +81,17 @@ def readiness():
     summary = core.resolve(cfg['summary_model']).is_file() and core.resolve(cfg['llama_exe']).is_file()
     voices = speakers.available()
     return {'asr': asr, 'summary': summary, 'speakers': voices, 'ready': asr and summary and voices,
-            'summary_name': Path(cfg['summary_model']).stem, 'summary_context': cfg['summary_context']}
+            'summary_name': Path(cfg['summary_model']).stem, 'summary_context': cfg['summary_context'],
+            'asr_name': speech.name, 'asr_device': cfg.get('asr_device','cpu'),
+            'asr_precision': cfg.get('asr_compute_type',''), 'language': cfg.get('language','ru'),
+            'speaker_embedding': Path(cfg.get('speaker_embedding','')).name,
+            'speaker_segmentation': Path(cfg.get('speaker_segmentation','')).name,
+            'speaker_engine': 'pyannote / sherpa-onnx',
+            'identity_threshold': cfg.get('speaker_identity_threshold',0.65),
+            'identity_margin': cfg.get('speaker_identity_margin',0.10),
+            'summary_device': cfg.get('summary_device',''),
+            'summary_gpu_layers': cfg.get('summary_gpu_layers',0),
+            'checked_at': time.time()}
 
 
 def job(key):

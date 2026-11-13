@@ -14,7 +14,16 @@ function renderState(){const jobs=state.jobs;$('#count-all').textContent=jobs.le
  $('#worker-label').textContent=state.worker?(state.stopping?'Остановится после текущей записи':'Очередь работает'):'Очередь остановлена';$('#worker-button').textContent=state.worker?(state.stopping?'Завершаем запись…':'Приостановить'):'Начать обработку';$('#worker-button').disabled=(!state.models.ready&&!state.worker)||(state.worker&&state.stopping);
  const list=$('#jobs');list.replaceChildren();if(!jobs.length)list.append(el('div','list-empty','Здесь появятся ваши записи'));
  for(const j of jobs){const button=el('button','job'+(j.id===selected?' selected':''));button.setAttribute('aria-label',j.name+' — '+(labels[j.status]||j.status));button.setAttribute('aria-pressed',String(j.id===selected));button.append(el('span','job-icon','≋'));const body=el('div','job-main');body.append(el('span','job-name',j.name),el('span','job-meta',date(j.created)+(j.status==='queued'||j.status==='held'?' · '+({'-10':'Низкий','0':'Обычный','10':'Высокий','20':'Срочный'}[j.priority]||'Обычный')+' приоритет':'')));button.append(body,el('span','badge '+j.status,labels[j.status]||j.status));button.onclick=()=>select(j.id);list.append(button)}
- const cards=$('#system-cards');cards.replaceChildren();for(const [name,ready,description] of [['Речь → текст',state.models.asr,'Whisper turbo · русский язык · процессор'],['Конспект и задачи',state.models.summary,(state.models.summary_name||'Локальная модель')+' · контекст '+state.models.summary_context+' токенов'],['Люди и имена',state.models.speakers,'Разделение голосов + сравнение с образцами сотрудников · процессор']]){const c=el('div','system-card');c.append(el('span','badge '+(ready?'needs_speaker_setup':''),ready?'Файлы установлены':name==='Люди и имена'?'Не подключено':'Установка не завершена'),el('h2','',name),el('p','',description));cards.append(c)}
+ const m=state.models;
+ const cards=$('#system-cards');cards.replaceChildren();
+ const stages=[
+  ['Речь → текст',m.asr,(m.asr_name||'Не указана')+' · язык: '+(m.language||'—')+' · '+(m.asr_device||'—')+' · '+(m.asr_precision||''),'Переводит звук встречи в текст.'],
+  ['Голоса → люди и имена',m.speakers,(m.speaker_embedding||'Не указана')+' · сегментация: '+(m.speaker_engine||'—')+' ('+(m.speaker_segmentation||'—')+')','Разделяет говорящих и сравнивает с образцами. Профилей: '+state.profiles.length+'. Порог имени: '+m.identity_threshold+'; отрыв от второго кандидата: '+m.identity_margin+'. Неуверенные совпадения остаются без имени.'],
+  ['Текст → сводка и конспект',m.summary,(m.summary_name||'Не указана')+' · контекст '+m.summary_context+' токенов','Анализирует расшифровку. Устройство: '+(m.summary_device||'по настройкам движка')+'; слоёв на GPU: '+m.summary_gpu_layers+'.']
+ ];
+ for(const [name,ready,model,description] of stages){const c=el('div','system-card');c.append(el('span','badge',ready?'Файлы установлены':'Файлы не найдены'),el('h2','',name),el('p','',model),el('p','muted',description));cards.append(c)}
+ $('#system-updated').textContent='Настройки сервера · обновлено '+new Date(m.checked_at*1000).toLocaleTimeString('ru-RU')+'. Обновляется автоматически, пока страница открыта. Наличие файлов не означает, что модель сейчас загружена в память.';
+
  renderQueueControls();renderCapture();renderLifecycle();
  if(state.worker_error){$('#connection').textContent='Обработчик остановился: '+state.worker_error;$('#connection').classList.remove('hidden')}
 }
