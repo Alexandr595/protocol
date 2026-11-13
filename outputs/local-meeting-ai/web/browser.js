@@ -254,3 +254,9 @@ async function setup(){
   db=await result(request);micList.disabled=false;listMicrophones().catch(()=>{});hint();start.disabled=false;mode.disabled=voice;await listDrafts();
 }
 setup().catch(e=>say(e.message));
+
+window.protocolRecorderBusy=()=>Boolean(current||stopping||uploading.size);
+if(params.has('embedded')){
+ document.querySelector('main > a').onclick=event=>{event.preventDefault();parent.postMessage('protocol:back',location.origin)};
+ byId('voice-profiles-link').onclick=event=>{event.preventDefault();parent.postMessage('protocol:voices',location.origin)};
+}

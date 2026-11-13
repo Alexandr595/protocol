@@ -48,3 +48,42 @@ $('#recognize-again').onclick=async()=>{
 };
 
 if(location.hash==='#voices')view('voices');
+
+// Keep the recorder mounted when returning to the meeting list.
+let recorderFrame, recorderPanel, recorderAddress;
+function showRecorder(address){
+ const url=recorderUrl(address);
+ if(url.origin!==location.origin){
+  const home=new URL('/',url);home.searchParams.set('recorder',url.pathname+url.search);
+  location.assign(home);return;
+ }
+ if(!recorderPanel){
+  recorderPanel=document.createElement('section');recorderPanel.className='integrated-recorder';
+  const back=document.createElement('button');back.className='secondary';back.textContent='← К списку встреч (запись продолжается)';
+  back.onclick=()=>{recorderPanel.hidden=true};
+  recorderFrame=document.createElement('iframe');recorderFrame.title='Запись встречи';
+  recorderFrame.allow='microphone; display-capture';
+  recorderPanel.append(back,recorderFrame);document.body.append(recorderPanel);
+ }
+ if(recorderAddress!==url.href){
+  if(recorderFrame.contentWindow?.protocolRecorderBusy?.()){
+   toast('Сначала завершите текущую запись и дождитесь отправки.');
+  }else{
+   url.searchParams.set('embedded','1');recorderFrame.src=url.href;
+   recorderAddress=new URL(address,location.href).href;
+  }
+ }
+ recorderPanel.hidden=false;
+}
+for(const link of document.querySelectorAll('[data-recorder]'))link.addEventListener('click',event=>{
+ event.preventDefault();showRecorder(link.href);
+});
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==recorderFrame?.contentWindow)return;
+ if(event.data==='protocol:back'){recorderPanel.hidden=true;refresh();}
+ if(event.data==='protocol:voices'){recorderPanel.hidden=true;view('voices');refresh();}
+});
+const requestedRecorder=new URLSearchParams(location.search).get('recorder');
+if(requestedRecorder && /^\/record(?:\?|$)/.test(requestedRecorder)){
+ showRecorder(requestedRecorder);history.replaceState(null,'',location.pathname+location.hash);
+}
