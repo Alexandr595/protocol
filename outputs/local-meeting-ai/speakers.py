@@ -194,7 +194,7 @@ def diarize(source,transcript):
     data=json.loads(transcript.read_text(encoding='utf-8'))
     diarizer,extractor=engines()
     from long_audio import windows, checkpoint_dir, WINDOW
-    bank=registry();names={};identities={};representatives={};turns=[]
+    bank=registry();names={};identities={};representatives={};turns=[];verification_refs={}
     cache=checkpoint_dir(transcript.parent,'speakers',source,{'config':core.config(),'profiles':bank})
     with decoded_audio(source,transcript.parent) as audio:
         for index,(begin,end,offset,samples) in enumerate(windows(audio)):
@@ -233,12 +233,17 @@ def diarize(source,transcript):
                     identities[str(sid)]={'name':names[sid],'person_id':person['id'] if person else None,
                         'similarity':similarity,'clean_seconds':seconds}
                     if vector is not None and seconds>=2:representatives[sid]=vector
+                if person and vector is not None:verification_refs.setdefault(sid,vector)
                 used.add(sid);mapping[int(local_id)]=sid
             for turn in part['turns']:
                 left,right=max(begin,offset+turn['start']),min(end,offset+turn['end'])
                 if right>left:turns.append({'start':left,'end':right,'speaker':mapping[turn['speaker']]})
     turns.sort(key=lambda t:t['start'])
     rows=assign_words(data['segments'],turns,names)
+    from speaker_verification import verify
+    with decoded_audio(source,transcript.parent) as audio:
+        rows=verify(rows,audio,extractor,verification_refs,embed)
+    data['identity_verification_version']=1
     data.update(segments=rows,speaker_turns=turns,identities=identities,speaker_status='identified',voice_profiles=len(bank['people']),
                 unknown_speakers=sum(x['person_id'] is None for x in identities.values()))
     core.save(transcript,data)
