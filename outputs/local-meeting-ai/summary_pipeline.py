@@ -6,7 +6,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
-VERSION = 5
+VERSION = 6
 
 
 class EarlierContext:
@@ -83,12 +83,16 @@ def run(data, folder, cfg, ask, chunks, transcript_lines, save, model):
         # latency and the number of lossy intermediate reductions. ask() still
         # checks actual token count before dispatching the request.
         merge_limit = 12000 if cfg['summary_context'] >= 16384 else 4000
+        rounds=0
         while len(notes) > 1:
+            rounds+=1
             groups = list(chunks(notes, limit=merge_limit))
             save(folder/'progress.json', {'stage':'summarizing', 'phase':phase, 'part':0, 'total':len(groups)})
             merged = [cached(group, merge=True) for group in groups]
-            if len(merged) >= len(notes) and sum(map(len, merged)) >= sum(map(len, notes)):
-                raise RuntimeError('Модель не сокращает промежуточную сводку. Все части сохранены; повтор продолжит с контрольных точек.')
+            if rounds>=8 or (len(merged) >= len(notes) and sum(map(len, merged)) >= sum(map(len, notes))):
+                # Keep every input note rather than discard evidence or fail the meeting.
+                return ('Единое объединение не удалось; ниже сохранены все разделы. Возможны повторы.\n\n'+
+                        '\n\n'.join(f'### Раздел {i+1}\n\n'+note for i,note in enumerate(notes)))
             notes = merged
         return notes[0]
 

@@ -194,7 +194,7 @@ def diarize(source,transcript):
     data=json.loads(transcript.read_text(encoding='utf-8'))
     diarizer,extractor=engines()
     from long_audio import windows, checkpoint_dir, WINDOW
-    bank=registry();names={};identities={};representatives={};turns=[];verification_refs={}
+    bank=registry();names={};identities={};representatives={};turns=[];verification_refs={};parts=[]
     cache=checkpoint_dir(transcript.parent,'speakers',source,{'config':core.config(),'profiles':bank})
     with decoded_audio(source,transcript.parent) as audio:
         for index,(begin,end,offset,samples) in enumerate(windows(audio)):
@@ -212,38 +212,39 @@ def diarize(source,transcript):
                     voices[str(sid)]={'vector':vector.tolist() if vector is not None else None,'seconds':seconds}
                 part={'turns':local,'voices':voices}
                 core.save(path,part)
-            mapping={};used=set()
-            for local_id,voice in part['voices'].items():
-                vector=normalize(voice['vector']) if voice['vector'] is not None else None
-                seconds=voice['seconds']
-                person,similarity=match_voice(vector,bank['people']) if seconds>=2 else (None,None)
-                sid=None
-                if person:
-                    sid=next((int(k) for k,v in identities.items() if v['person_id']==person['id']),None)
-                elif vector is not None and seconds>=2:
-                    # Conservative cross-window association. Never silently reuse an
-                    # unknown label merely because its local cluster number repeats.
-                    scores=sorted(((float(np.dot(vector,v)),k) for k,v in representatives.items()
-                        if k not in used and identities[str(k)]['person_id'] is None),reverse=True)
-                    if scores and scores[0][0]>=0.75 and (len(scores)==1 or scores[0][0]-scores[1][0]>=0.10):
-                        sid=scores[0][1]
-                if sid is None:
-                    sid=len(names)
-                    names[sid]=person['name'] if person else f'Участник {sid+1} (имя не определено)'
-                    identities[str(sid)]={'name':names[sid],'person_id':person['id'] if person else None,
-                        'similarity':similarity,'clean_seconds':seconds}
-                    if vector is not None and seconds>=2:representatives[sid]=vector
-                if person and vector is not None:verification_refs.setdefault(sid,vector)
-                used.add(sid);mapping[int(local_id)]=sid
-            for turn in part['turns']:
-                left,right=max(begin,offset+turn['start']),min(end,offset+turn['end'])
-                if right>left:turns.append({'start':left,'end':right,'speaker':mapping[turn['speaker']]})
+            parts.append((begin,end,offset,part))
+    from speaker_groups import reconcile,corroborated_name
+    entries=[]
+    for index,(begin,end,offset,part) in enumerate(parts):
+        for local_id,voice in part['voices'].items():
+            intervals=[(max(begin,offset+t['start']),min(end,offset+t['end'])) for t in part['turns']
+                       if t['speaker']==int(local_id) and min(end,offset+t['end'])>max(begin,offset+t['start'])]
+            if intervals:entries.append(dict(voice,key=(index,int(local_id)),intervals=intervals))
+    mapping={}
+    for sid,group in enumerate(reconcile(entries)):
+        vector=normalize(np.mean([normalize(m['vector']) for m in group],axis=0))
+        person,similarity=match_voice(vector,bank['people'])
+        method='profile_threshold'
+        if not person:
+            person=corroborated_name(group,bank['people']);method='repeated_acoustic_evidence'
+        names[sid]=person['name'] if person else f'Участник {sid+1} (имя не определено)'
+        identities[str(sid)]={'name':names[sid],'person_id':person['id'] if person else None,
+                             'similarity':similarity,'clean_seconds':sum(m['seconds'] for m in group),
+                             'evidence_groups':len(group),'identity_method':method if person else 'unknown'}
+        verification_refs[sid]=vector
+        for member in group:mapping[member['key']]=sid
+    # Fragments with insufficient clean speech are uncertainty, not new people.
+    names[-1]='Говорящий не определён'
+    for index,(begin,end,offset,part) in enumerate(parts):
+        for turn in part['turns']:
+            left,right=max(begin,offset+turn['start']),min(end,offset+turn['end'])
+            if right>left:turns.append({'start':left,'end':right,'speaker':mapping.get((index,turn['speaker']),-1)})
     turns.sort(key=lambda t:t['start'])
     rows=assign_words(data['segments'],turns,names)
     from speaker_verification import verify
     with decoded_audio(source,transcript.parent) as audio:
-        rows=verify(rows,audio,extractor,verification_refs,embed)
-    data['identity_verification_version']=1
+        rows=verify(rows,audio,extractor,verification_refs,embed,eligible={int(k) for k,v in identities.items() if v["person_id"]})
+    data['identity_verification_version']=2
     data.update(segments=rows,speaker_turns=turns,identities=identities,speaker_status='identified',voice_profiles=len(bank['people']),
                 unknown_speakers=sum(x['person_id'] is None for x in identities.values()))
     core.save(transcript,data)

@@ -40,3 +40,14 @@ node --check outputs/local-meeting-ai/web/recording-ui.js
 Исправлено: лишние поиски в списке файлов архива (используется множество); остаточные временные JSON после сбоя; чрезмерно длинное временное имя на Windows; смена режима во время запроса разрешения устройств; вводящая в заблуждение постоянная надпись о продолжающейся записи. Удалены неиспользуемые импорты. Модели и пороги распознавания не менялись.
 
 Оставлены для отдельной работы: отправка браузером собирает дорожку из IndexedDB через getAll — для многочасовой записи возможен высокий расход памяти. Надёжная отправка частями потребует отдельного протокола и проверки восстановления после разрыва связи. Не следует заменять её поспешно в ходе уборки. Также не выполнено массовое форматирование старого кода: оно затруднило бы просмотр функциональных исправлений.
+
+
+## Accounts and meeting verification
+
+The HTTPS login page creates a 30-day, revocable HttpOnly/SameSite=Strict/Secure cookie shared by the home page and same-origin embedded recorder. Public registration is absent. The initial administrator comes from the existing network configuration; only administrators can list/create users. Passwords use salted PBKDF2-SHA256; session tokens are hashed in the local accounts SQLite database. Local loopback maintenance and existing Basic-auth clients retain compatibility. Meetings remain shared within the workspace; this is not per-user record isolation. Never commit state databases, credentials, recordings or voice samples.
+
+Processing duration is finished minus started for the last processing attempt, excluding queue time, not a sum of retries.
+
+Speaker clusters are reconciled over the whole recording using complete-link similarity and an overlap exclusion, allowing at most 0.5 seconds AND 2% boundary overlap. Fragments under two seconds of clean audio do not create new identities. A lower profile score is accepted only with several independent long acoustic groups, a large margin over the competing enrolled profiles, and agreement on identity. This is a conservative heuristic, not a measured accuracy guarantee. Local phrase verification still rejects doubtful identity assignments.
+
+When summary reduction fails to shrink, all input sections are preserved with an explicit warning instead of crashing or silently truncating evidence.

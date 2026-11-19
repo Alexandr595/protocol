@@ -9,15 +9,15 @@ def phrases(words):
         if part and (word['start']-part[-1]['end']>=0.5 or word['end']-part[0]['start']>8):
             yield part;part=[]
         part.append(word)
-        if word['word'].rstrip().endswith(('?', '!', '.')) and not word['word'].rstrip().endswith('...'):
+        if word['end']-part[0]['start']>=2 and word['word'].rstrip().endswith(('?', '!', '.')) and not word['word'].rstrip().endswith('...'):
             yield part;part=[]
     if part:yield part
 
 
-def verify(rows, audio, extractor, references, embed, threshold=0.60, margin=0.10):
+def verify(rows, audio, extractor, references, embed, threshold=0.60, margin=0.10, eligible=None):
     output=[]
     for row in rows:
-        if row.get('speaker_id') not in references or not row.get('words'):
+        if (eligible is not None and row.get('speaker_id') not in eligible) or row.get('speaker_id') not in references or not row.get('words'):
             output.append(row);continue
         for words in phrases(row['words']):
             item=copy.deepcopy(row)

@@ -25,6 +25,8 @@ PORT = int(os.environ.get('MEETING_UI_PORT', '18765'))
 ORIGIN = f'http://127.0.0.1:{PORT}'
 ROOT = core.ROOT
 network = NetworkAccess(ROOT)
+from accounts import Accounts
+accounts = Accounts(ROOT, network.config)
 worker = None
 stop_event = threading.Event()
 shutting_down = threading.Event()
@@ -113,6 +115,7 @@ def public_job(row):
     folder = ROOT / 'results' / row['id'][:16]
     row['progress'] = read_json(folder / 'progress.json', {}) if row['status'] == 'running' else {}
     row['has_transcript'] = (folder / 'transcript.json').is_file()
+    row['processing_seconds'] = max(0,row['finished']-row['started']) if row.get('started') and row.get('finished') else None
     row['has_minutes'] = (folder / 'minutes.md').is_file()
     row['has_summary'] = (folder / 'summary.md').is_file()
     row['result_version'] = [(folder / f).stat().st_mtime_ns if (folder / f).exists() else 0 for f in ('transcript.json','summary.md','minutes.md')]
@@ -137,11 +140,20 @@ class Handler(BaseHTTPRequestHandler):
         return network.valid_host(self.headers.get('Host'), PORT)
 
     def authenticate(self):
-        if network.authorized(self.client_address[0], self.headers.get('Authorization')): return True
+        self.user = accounts.user(self.headers.get('Cookie')) if network.allowed_address(self.client_address[0]) else None
+        if self.user: return True
+        # Preserve local maintenance scripts and older authenticated clients.
+        if network.authorized(self.client_address[0], self.headers.get('Authorization')):
+            self.user = {'login':network.config.get('username','meeting'),'role':'admin'}
+            return True
         self.close_connection = True
-        self.respond(401, {'error': 'Введите логин и пароль для доступа по локальной сети.'},
-                     extra={'WWW-Authenticate': 'Basic realm="Meeting AI", charset="UTF-8"', 'Connection':'close'})
+        if self.command == 'GET' and not self.path.startswith('/api/'):
+            self.respond(303,b'',extra={'Location':'/login','Connection':'close'})
+        else:self.respond(401,{'error':'Войдите в Протокол.'},extra={'Connection':'close'})
         return False
+
+    def session_cookie(self,token,age=2592000):
+        return 'protocol_session='+token+'; Path=/; HttpOnly; SameSite=Strict; Max-Age='+str(age)+('; Secure' if isinstance(self.connection,ssl.SSLSocket) else '')
 
     def respond(self, status, body, kind='application/json; charset=utf-8', extra=None):
         if not isinstance(body, bytes):
@@ -172,6 +184,14 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(403, {'error': 'Недопустимый адрес'})
             return
         path = urllib.parse.urlsplit(self.path).path
+        if path in {'/','/record','/login'} and not isinstance(self.connection,ssl.SSLSocket) and self.client_address[0] not in {'127.0.0.1','::1'}:
+            self.respond(303,b'',extra={'Location':'https://'+self.headers['Host']+self.path});return
+        public={'/login':'login.html','/login.js':'login.js','/login.css':'login.css'}
+        if path in public:
+            if not network.allowed_address(self.client_address[0]):
+                self.respond(403,{'error':'Доступ только из локальной сети.'});return
+            file=ROOT/'web'/public[path]
+            self.respond(200,file.read_bytes(),(mimetypes.guess_type(str(file))[0] or 'text/plain')+'; charset=utf-8');return
         if path in {'/ProtocolSetup.msi', '/client.zip'}:
             if not network.allowed_address(self.client_address[0]):
                 self.respond(403, {'error':'Скачивание доступно только в локальной сети.'})
@@ -180,7 +200,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/Protocol-LAN.cer':
             self.respond(200, (ROOT/'state/https/Protocol-LAN.cer').read_bytes(), 'application/pkix-cert')
             return
-        static = {'/theme.js':'theme.js','/record':'browser.html','/record.js':'browser.js','/': 'index.html', '/app.js': 'app.js', '/queue-ui.js':'queue-ui.js', '/recording-ui.js':'recording-ui.js', '/style.css': 'style.css', '/dark.css':'dark.css', '/lifecycle-ui.js':'lifecycle-ui.js'}
+        static = {'/account-ui.js':'account-ui.js','/theme.js':'theme.js','/record':'browser.html','/record.js':'browser.js','/': 'index.html', '/app.js': 'app.js', '/queue-ui.js':'queue-ui.js', '/recording-ui.js':'recording-ui.js', '/style.css': 'style.css', '/dark.css':'dark.css', '/lifecycle-ui.js':'lifecycle-ui.js'}
         if path in static:
             file = ROOT / 'web' / static[path]
             self.respond(200, file.read_bytes(), (mimetypes.guess_type(str(file))[0] or 'text/plain') + '; charset=utf-8')
@@ -198,11 +218,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(200, file.read_bytes(), 'application/zip',
                              {'Content-Disposition': 'attachment; filename="Protocol-AudioCheck.zip"'})
             else:self.respond(404,{'error':'Пакет диагностики ещё не собран.'})
+        elif path == '/api/admin/users':
+            if self.user['role']!='admin':self.respond(403,{'error':'Нужны права администратора.'})
+            else:self.respond(200,{'users':accounts.users()})
         elif path == '/api/state':
             with core.database() as db:
                 rows = db.execute("SELECT * FROM jobs WHERE status!='deleted' ORDER BY CASE status WHEN 'running' THEN 0 WHEN 'queued' THEN 1 WHEN 'held' THEN 2 ELSE 3 END, CASE WHEN status='queued' THEN -priority ELSE 0 END, CASE WHEN status='queued' THEN created ELSE -created END LIMIT 300").fetchall()
                 counts = dict(db.execute("SELECT status,COUNT(*) FROM jobs WHERE status!='deleted' GROUP BY status").fetchall())
-            self.respond(200, {'jobs': [public_job(r) for r in rows], 'models': readiness(),
+            self.respond(200, {'user':self.user,'jobs': [public_job(r) for r in rows], 'models': readiness(),
                 'worker': bool(worker and worker.is_alive()), 'stopping': stop_event.is_set(),
                 'worker_error': worker_error, 'folder': watcher.snapshot() if watcher else None, 'counts':counts,
                 'trash':trash_records(), 'recording':recorder.snapshot(), 'profiles':speakers.public_profiles(), 'recoverable':recorder.recoverable()})
@@ -296,6 +319,18 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             self.respond(403, {'error': 'Запрос разрешён только из локального интерфейса'})
             return
+        if urllib.parse.urlsplit(self.path).path == '/api/login':
+            try:
+                if not network.allowed_address(self.client_address[0]):raise ValueError('Доступ только из локальной сети.')
+                if not isinstance(self.connection,ssl.SSLSocket) and self.client_address[0] not in {'127.0.0.1','::1'}:raise ValueError('Войдите через HTTPS.')
+                length=int(self.headers.get('Content-Length','0'))
+                if not 0<length<=8192:raise ValueError('Неверный запрос.')
+                data=json.loads(self.rfile.read(length))
+                token=accounts.login(data.get('login'),data.get('password'),self.client_address[0])
+                self.respond(200,{'ok':True},extra={'Set-Cookie':self.session_cookie(token)})
+            except (ValueError,TypeError,AttributeError) as exc:
+                self.close_connection=True;self.respond(400,{'error':str(exc)})
+            return
         if not self.authenticate(): return
         try:
             if shutting_down.is_set():raise ValueError('Сервер останавливается.')
@@ -308,7 +343,12 @@ class Handler(BaseHTTPRequestHandler):
                 data = json.loads(self.rfile.read(length)) if length else {}
                 if not isinstance(data,dict):
                     raise ValueError('Неверный формат запроса')
-            if path == '/api/browser-meeting':
+            if path == '/api/admin/users':
+                if self.user['role']!='admin':self.respond(403,{'error':'Нужны права администратора.'});return
+                accounts.create(data.get('login'),data.get('password'));self.respond(200,{'ok':True})
+            elif path == '/api/logout':
+                accounts.logout(self.headers.get('Cookie'));self.respond(200,{'ok':True},extra={'Set-Cookie':self.session_cookie('',0)})
+            elif path == '/api/browser-meeting':
                 self.respond(200, receive_meeting(self))
             elif path == '/api/upload':
                 self.upload()
